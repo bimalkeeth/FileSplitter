@@ -4,6 +4,7 @@ import (
 	"FileSplitter/splits"
 	"github.com/fsnotify/fsnotify"
 	"log"
+	"time"
 )
 
 func main() {
@@ -20,13 +21,15 @@ func main() {
 			select {
 			case event := <-watcher.Events:
 				if event.Op == fsnotify.Write {
+					time.Sleep(1000 * time.Millisecond)
+
 					if processedFile != event.Name {
 
 						log.Println("Modified file", event.Name)
 						processor := splits.New()
 						_, err := processor.ProcessCsv(event.Name)
 						if err != nil {
-							log.Fatal("error in file processing")
+							log.Fatal("error in file processing", err)
 						}
 						processedFile = event.Name
 					}
@@ -36,7 +39,7 @@ func main() {
 			}
 		}
 	}()
-	err = watcher.Add("/home/bill/Downloads/Test")
+	err = watcher.Add("D:\\Watcher\\Source")
 	if err != nil {
 		log.Fatal(err)
 	}

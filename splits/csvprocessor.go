@@ -61,14 +61,13 @@ func (p *CsvProcess) ProcessCsv(filePath string) (bool, error) {
 		if recordArray[0] == "200" {
 			if !firstRecord {
 
+				wg.Add(1)
 				var m sync.RWMutex
 				finalRow := make([]string, 0)
 				finalRow = append(finalRow, "900")
 				recordList = append(recordList, finalRow)
 				go ProcessMeterDataSplitting(listChan, &m, &wg, nmiFileName)
-
 				listChan <- recordList
-				wg.Add(1)
 				wg.Wait()
 				recordList = make([][]string, 0)
 			}
@@ -103,18 +102,18 @@ func ProcessMeterDataSplitting(arr <-chan [][]string, m *sync.RWMutex, wg *sync.
 	case val := <-arr:
 		uid, eru := uuid.NewV4()
 		Error("uniqueue id error", eru)
-		file, err := os.Create(fmt.Sprintf("%s%s%s%s", "/home/bill/Downloads/", nimiNumber, uid.String(), ".csv"))
+		file, err := os.Create(fmt.Sprintf("%s%s%s%s", "D:\\Watcher\\Results\\", nimiNumber, uid.String(), ".csv"))
 		Error("error in file creation", err)
 		defer file.Close()
 		writer := csx.NewWriter(file)
 		defer writer.Flush()
 		for _, item := range val {
 			fmt.Println(item)
-			writer.Write(item)
+			err = writer.Write(item)
+			Error("Error in writing to file", err)
 		}
 	}
 	m.Unlock()
-
 }
 
 func Error(message string, err error) {
