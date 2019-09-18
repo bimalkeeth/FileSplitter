@@ -5,42 +5,40 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"log"
 )
+
 func main() {
 
-	var processedFile =""
+	var processedFile = ""
 	watcher, err := fsnotify.NewWatcher()
-	if err!=nil{
+	if err != nil {
 		log.Fatal(err)
 	}
 	defer watcher.Close()
-	done:=make(chan bool)
-	go func(){
-		for{
+	done := make(chan bool)
+	go func() {
+		for {
 			select {
-			    case event:=<-watcher.Events:
-			    	if event.Op ==fsnotify.Write{
-			    		if processedFile!=event.Name {
+			case event := <-watcher.Events:
+				if event.Op == fsnotify.Write {
+					if processedFile != event.Name {
 
-							log.Println("Modified file",event.Name)
-							processor:=splits.New()
-							_,err:=processor.ProcessCsv(event.Name)
-							if err != nil{
-								log.Fatal("error in file processing")
-							}
-							processedFile=event.Name
+						log.Println("Modified file", event.Name)
+						processor := splits.New()
+						_, err := processor.ProcessCsv(event.Name)
+						if err != nil {
+							log.Fatal("error in file processing")
 						}
+						processedFile = event.Name
 					}
-			    case err:=<-watcher.Errors:
-			    	log.Println("error:",err)
+				}
+			case err := <-watcher.Errors:
+				log.Println("error:", err)
 			}
 		}
 	}()
-    err=watcher.Add("D:\\Watcher")
-    if err!=nil{
-    	log.Fatal(err)
+	err = watcher.Add("/home/bill/Downloads/Test")
+	if err != nil {
+		log.Fatal(err)
 	}
-    <-done
+	<-done
 }
-
-
-
