@@ -1,0 +1,6 @@
+github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=
+github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
+github.com/radovskyb/watcher v1.0.7 h1:AYePLih6dpmS32vlHfhCeli8127LzkIgwJGcwwe8tUE=
+github.com/radovskyb/watcher v1.0.7/go.mod h1:78okwvY5wPdzcb1UYnip1pvrZNIVEIh/Cm+ZuvsUYIg=
+trimmer.io/go-csv v0.0.0-20190307113024-e18eb1e06f6e h1:ZU9Eh14VnzBMbtl9GYQEqpATES0cKpJiKCGH9nNsZeA=
+trimmer.io/go-csv v0.0.0-20190307113024-e18eb1e06f6e/go.mod h1:fDmF1cV5Sq2/eAJVvIqEOb5VD8CXsY02V61G6rWSm2o=
