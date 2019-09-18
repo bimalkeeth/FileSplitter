@@ -97,7 +97,7 @@ func (p *CsvProcess) ProcessCsv(filePath string) (bool, error) {
 }
 
 func ProcessMeterDataSplitting(arr <-chan [][]string, m *sync.RWMutex, wg *sync.WaitGroup, nimiNumber string) {
-
+	defer wg.Done()
 	m.Lock()
 	select {
 	case val := <-arr:
@@ -114,7 +114,7 @@ func ProcessMeterDataSplitting(arr <-chan [][]string, m *sync.RWMutex, wg *sync.
 		}
 	}
 	m.Unlock()
-	wg.Done()
+
 }
 
 func Error(message string, err error) {
