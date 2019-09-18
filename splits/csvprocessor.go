@@ -4,6 +4,7 @@ import (
 	"bufio"
 	csx "encoding/csv"
 	"fmt"
+	"github.com/nu7hatch/gouuid"
 	"io"
 	"log"
 	"os"
@@ -42,7 +43,7 @@ func (p *CsvProcess) ProcessCsv(filePath string) (bool, error) {
 	var recordList = make([][]string, 0)
 	firstRecord := true
 	listChan := make(chan [][]string)
-
+	var nmiFileName string
 	for {
 
 		var itemList []string
@@ -64,19 +65,18 @@ func (p *CsvProcess) ProcessCsv(filePath string) (bool, error) {
 				finalRow := make([]string, 0)
 				finalRow = append(finalRow, "900")
 				recordList = append(recordList, finalRow)
-				go ProcessMeterDataSplitting(listChan, &m, &wg)
+				go ProcessMeterDataSplitting(listChan, &m, &wg, nmiFileName)
 
 				listChan <- recordList
 				wg.Add(1)
 				wg.Wait()
 				recordList = make([][]string, 0)
-
 			}
 			// recLength:=len(recordArray)
 			firstList := make([]string, 0)
-
+			nmiFileName = fmt.Sprintf("%s%s", "NMI", recordArray[1])
 			firstList = append(firstList, "100")
-			firstList = append(firstList, fmt.Sprintf("%s%s", "NMI", recordArray[1]))
+			firstList = append(firstList, nmiFileName)
 			firstList = append(firstList, "ORIGIN")
 			firstList = append(firstList, "ORIGIN")
 
@@ -90,18 +90,20 @@ func (p *CsvProcess) ProcessCsv(filePath string) (bool, error) {
 
 			recordList = append(recordList, recordArray)
 		}
-
 		//fmt.Println(record)
 	}
+
 	return true, nil
 }
 
-func ProcessMeterDataSplitting(arr <-chan [][]string, m *sync.RWMutex, wg *sync.WaitGroup) {
+func ProcessMeterDataSplitting(arr <-chan [][]string, m *sync.RWMutex, wg *sync.WaitGroup, nimiNumber string) {
 
 	m.Lock()
 	select {
 	case val := <-arr:
-		file, err := os.Create("/home/bill/Downloads/bimal2.csv")
+		uid, eru := uuid.NewV4()
+		Error("uniqueue id error", eru)
+		file, err := os.Create(fmt.Sprintf("%s%s%s%s", "/home/bill/Downloads/", nimiNumber, uid.String(), ".csv"))
 		Error("error in file creation", err)
 		defer file.Close()
 		writer := csx.NewWriter(file)
