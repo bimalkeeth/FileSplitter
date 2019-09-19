@@ -2,18 +2,25 @@ package main
 
 import (
 	"FileSplitter/splits"
+	"encoding/json"
 	"github.com/fsnotify/fsnotify"
+	"io/ioutil"
 	"log"
 	"time"
 )
 
 func main() {
-
+	defer splits.Panicking()
 	var processedFile = ""
+	data, err := ioutil.ReadFile("config.json")
+	splits.Error("error in confile file reading", err)
+
+	config := &splits.Config{}
+	err = json.Unmarshal(data, config)
+
 	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Fatal(err)
-	}
+	splits.Error("watcher error", err)
+
 	defer watcher.Close()
 	done := make(chan bool)
 	go func() {
@@ -27,11 +34,11 @@ func main() {
 
 						log.Println("Modified file", event.Name)
 						processor := splits.New()
-						_, err := processor.ProcessCsv(event.Name)
-						if err != nil {
-							log.Fatal("error in file processing", err)
-						}
+						destPath, err := processor.ProcessCsv(event.Name, config)
+						splits.Error("error in file processing", err)
+						splits.MoveFile(event.Name, destPath)
 						processedFile = event.Name
+
 					}
 				}
 			case err := <-watcher.Errors:
@@ -39,9 +46,7 @@ func main() {
 			}
 		}
 	}()
-	err = watcher.Add("D:\\Watcher\\Source")
-	if err != nil {
-		log.Fatal(err)
-	}
+	err = watcher.Add(config.Source)
+	splits.Error("error in adding file to watcher", err)
 	<-done
 }
