@@ -4,11 +4,14 @@ import (
 	"bufio"
 	csx "encoding/csv"
 	"fmt"
+	. "github.com/ahmetb/go-linq"
 	"github.com/nu7hatch/gouuid"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +28,8 @@ func New() ICsvProcessor {
 	return &CsvProcess{}
 }
 
+type By func(p1, p2 *OrderData) bool
+
 //-------------------------------------------------------
 //processing big file to split into small files
 //-------------------------------------------------------
@@ -38,7 +43,6 @@ func (p *CsvProcess) ProcessCsv(filePath string, config *Config) (string, error)
 		return "", err
 	}
 	reader := csv.NewDecoder(bufio.NewReader(file)).SkipUnknown(true)
-
 	destinationPath := fmt.Sprintf("%s%s%s", config.Destination, config.DirectorySep, time.Now().Format("02-Jan-2006"))
 
 	if _, err = os.Stat(destinationPath); os.IsNotExist(err) {
@@ -52,57 +56,69 @@ func (p *CsvProcess) ProcessCsv(filePath string, config *Config) (string, error)
 		err = os.Mkdir(fileFolderPath, os.ModeDir)
 	}
 	Error("error in file directory creation", err)
-
-	var recordList = make([][]string, 0)
-	firstRecord := true
-	listChan := make(chan [][]string)
-	var nmiFileName string
+	var orderedList = make([]OrderData, 0)
+	itemTable := make([][]string, 0)
+	first := true
 	for {
-		var itemList []string
-		record, err := reader.ReadLine()
-		if err == io.EOF {
+		recordOrd, err := reader.ReadLine()
+		if err == io.EOF || recordOrd == "" {
 			break
 		}
-		Error("error in processing csv file", err)
-		if record == "" {
-			break
-		}
-		recordArray := strings.Split(record, ",")
-		if recordArray[0] == "200" {
-			if !firstRecord {
+		Error("error in day directory creation", err)
+		recordArray := strings.Split(recordOrd, ",")
+		if recordArray[1] != "" && recordArray[1] != " " {
 
-				wg.Add(1)
-				var m sync.RWMutex
-				finalRow := make([]string, 0)
-				finalRow = append(finalRow, "900")
-				recordList = append(recordList, finalRow)
-				go ProcessMeterDataSplitting(listChan, &m, &wg, nmiFileName, fileFolderPath, config)
-				listChan <- recordList
-				wg.Wait()
-				recordList = make([][]string, 0)
-			}
-			// recLength:=len(recordArray)
-			firstList := make([]string, 0)
-			nmiFileName = fmt.Sprintf("%s%s", "", recordArray[1])
-			firstList = append(firstList, "100")
-			firstList = append(firstList, nmiFileName)
-			firstList = append(firstList, config.Client)
-			firstList = append(firstList, config.Client)
-			firstList = append(firstList, "\r\n")
+			itemTable = append(itemTable, recordArray)
+			if recordArray[0] == "200" {
+				if !first {
 
-			recordList = append(recordList, firstList)
-			for _, item := range recordArray {
-				itemList = append(itemList, item)
+					val, err := strconv.ParseInt(recordArray[1], 10, 64)
+					Error("error in day directory creation", err)
+					data := OrderData{Nimi: val, Data: itemTable, Status: recordArray[0]}
+					orderedList = append(orderedList, data)
+				}
+				first = false
 			}
-			itemList = append(itemList, "")
-			recordList = append(recordList, itemList)
-			firstRecord = false
-		} else {
-			recordArray = append(recordArray, "")
-			recordList = append(recordList, recordArray)
 		}
 	}
+	sort.Slice(orderedList[:], func(i, j int) bool {
+		return orderedList[i].Nimi < orderedList[j].Nimi
+	})
 
+	var recordList = make([][]string, 0)
+	listChan := make(chan [][]string)
+	var nmiFileName string
+
+	//---------------------------------------------
+	//group all the object
+	//---------------------------------------------
+	var dataItems []Group
+	From(orderedList).GroupByT(
+		func(word OrderData) string { return word.Status },
+		func(word OrderData) int64 { return word.Nimi },
+	).ToSlice(&dataItems)
+
+	//----------------------------------------------
+	//loop to create and spawn go routine
+	//----------------------------------------------
+	var m sync.RWMutex
+	for _, item := range dataItems {
+
+		if len(item.Group) > 0 {
+			nmiFileName = fmt.Sprintf("%s%s", "", item.Group[1])
+			firstElement := []string{"100", nmiFileName, config.Client, config.Client, "\r\n"}
+			recordList = append(recordList, firstElement)
+			for _, data := range item.Group {
+				recordList = append(recordList, data.([]string))
+			}
+			recordList = append(recordList, []string{"900", "\r\n"})
+			wg.Add(1)
+			go ProcessMeterDataSplitting(listChan, &m, &wg, nmiFileName, fileFolderPath, config)
+			listChan <- recordList
+			wg.Wait()
+			recordList = make([][]string, 0)
+		}
+	}
 	ss := fmt.Sprintf("%s%s%s", fileFolderPath, config.DirectorySep, filename)
 	return ss, nil
 }
@@ -118,7 +134,6 @@ func ProcessMeterDataSplitting(arr <-chan [][]string, m *sync.RWMutex, wg *sync.
 		uid, eru := uuid.NewV4()
 		Error("unique id error", eru)
 		file, err := os.Create(fmt.Sprintf("%s%s%s%s%s", destinationPath, config.DirectorySep, nimiNumber+"-", uid.String(), ".csv"))
-
 		Error("error in file creation", err)
 		defer file.Close()
 		writer := csx.NewWriter(file)
