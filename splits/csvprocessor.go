@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -56,9 +55,10 @@ func (p *CsvProcess) ProcessCsv(filePath string, config *Config) (string, error)
 		err = os.Mkdir(fileFolderPath, os.ModeDir)
 	}
 	Error("error in file directory creation", err)
-	var orderedList = make([]OrderData, 0)
-	itemTable := make([][]string, 0)
-	first := true
+
+	var orderedList []OrderData
+	var itemTable [][]string
+	//first := true
 	for {
 		recordOrd, err := reader.ReadLine()
 		if err == io.EOF || recordOrd == "" {
@@ -69,23 +69,38 @@ func (p *CsvProcess) ProcessCsv(filePath string, config *Config) (string, error)
 		if recordArray[1] != "" && recordArray[1] != " " {
 
 			itemTable = append(itemTable, recordArray)
-			if recordArray[0] == "200" {
-				if !first {
-
-					val, err := strconv.ParseInt(recordArray[1], 10, 64)
-					Error("error in day directory creation", err)
-					data := OrderData{Nimi: val, Data: itemTable, Status: recordArray[0]}
-					orderedList = append(orderedList, data)
-				}
-				first = false
-			}
 		}
+
+		//if recordArray[1] != "" && recordArray[1] != " " {
+		//
+		//	if recordArray[0] == "200" {
+		//		if !first {
+		//
+		//			val, err := strconv.ParseInt(recordArray[1], 10, 64)
+		//			Error("error in day directory creation", err)
+		//			data := OrderData{Nimi: val, Data: itemTable, Status: recordArray[0]}
+		//			orderedList = append(orderedList, data)
+		//			itemTable=[][]string{}
+		//			itemTable = append(itemTable, recordArray)
+		//
+		//		}else{
+		//			itemTable = append(itemTable, recordArray)
+		//		}
+		//		first = false
+		//	}else{
+		//		itemTable = append(itemTable, recordArray)
+		//	}
+		//}
 	}
+
+	fmt.Println(len(orderedList))
+
 	sort.Slice(orderedList[:], func(i, j int) bool {
+
 		return orderedList[i].Nimi < orderedList[j].Nimi
 	})
 
-	var recordList = make([][]string, 0)
+	var recordList [][]string
 	listChan := make(chan [][]string)
 	var nmiFileName string
 
@@ -94,8 +109,8 @@ func (p *CsvProcess) ProcessCsv(filePath string, config *Config) (string, error)
 	//---------------------------------------------
 	var dataItems []Group
 	From(orderedList).GroupByT(
-		func(word OrderData) string { return word.Status },
 		func(word OrderData) int64 { return word.Nimi },
+		func(word OrderData) [][]string { return word.Data },
 	).ToSlice(&dataItems)
 
 	//----------------------------------------------
@@ -116,7 +131,7 @@ func (p *CsvProcess) ProcessCsv(filePath string, config *Config) (string, error)
 			go ProcessMeterDataSplitting(listChan, &m, &wg, nmiFileName, fileFolderPath, config)
 			listChan <- recordList
 			wg.Wait()
-			recordList = make([][]string, 0)
+			recordList = [][]string{}
 		}
 	}
 	ss := fmt.Sprintf("%s%s%s", fileFolderPath, config.DirectorySep, filename)
