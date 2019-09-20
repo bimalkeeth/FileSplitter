@@ -73,7 +73,7 @@ func (p *CsvProcess) ProcessCsv(filePath string, config *Config) (string, error)
 				} else {
 					itemMap[mapKey] = append(itemMap[mapKey], recordArray)
 				}
-				fmt.Printf("%s%s", "processing status reord -", mapKey)
+				fmt.Println("processing status reord -", mapKey)
 			} else {
 				itemTable = append(itemTable, recordArray)
 			}
@@ -112,14 +112,13 @@ func ProcessMeterDataSplitting(arr <-chan [][]string, m *sync.RWMutex, wg *sync.
 	case val := <-arr:
 		uid, eru := uuid.NewV4()
 		Error("unique id error", eru)
-		fmt.Println(fmt.Sprintf("%s%s%s%s%s", destinationPath, config.DirectorySep, nimiNumber+"-", uid.String(), ".csv"))
 		file, err := os.Create(fmt.Sprintf("%s%s%s%s%s", destinationPath, config.DirectorySep, nimiNumber+"-", uid.String(), ".csv"))
 		Error("error in file creation", err)
 		defer file.Close()
 		writer := csx.NewWriter(file)
 		defer writer.Flush()
 		for _, item := range val {
-			//	fmt.Println(item)
+			fmt.Println(item)
 			err = writer.Write(item)
 			Error("Error in writing to file", err)
 		}
