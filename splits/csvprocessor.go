@@ -4,13 +4,11 @@ import (
 	"bufio"
 	csx "encoding/csv"
 	"fmt"
-	. "github.com/ahmetb/go-linq"
 	"github.com/nu7hatch/gouuid"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -56,9 +54,8 @@ func (p *CsvProcess) ProcessCsv(filePath string, config *Config) (string, error)
 	}
 	Error("error in file directory creation", err)
 
-	var orderedList []OrderData
 	var itemTable [][]string
-	//first := true
+	itemMap := make(map[string][][]string)
 	for {
 		recordOrd, err := reader.ReadLine()
 		if err == io.EOF || recordOrd == "" {
@@ -67,76 +64,38 @@ func (p *CsvProcess) ProcessCsv(filePath string, config *Config) (string, error)
 		Error("error in day directory creation", err)
 		recordArray := strings.Split(recordOrd, ",")
 		if recordArray[1] != "" && recordArray[1] != " " {
-
-			itemTable = append(itemTable, recordArray)
+			mapKey := recordArray[1]
+			if recordArray[0] == "200" {
+				if _, ok := itemMap[mapKey]; ok {
+					for _, item := range itemTable {
+						itemMap[mapKey] = append(itemMap[mapKey], item)
+					}
+				} else {
+					itemMap[mapKey] = append(itemMap[mapKey], recordArray)
+				}
+				fmt.Printf("%s%s", "processing status reord -", mapKey)
+			} else {
+				itemTable = append(itemTable, recordArray)
+			}
 		}
-
-		//if recordArray[1] != "" && recordArray[1] != " " {
-		//
-		//	if recordArray[0] == "200" {
-		//		if !first {
-		//
-		//			val, err := strconv.ParseInt(recordArray[1], 10, 64)
-		//			Error("error in day directory creation", err)
-		//			data := OrderData{Nimi: val, Data: itemTable, Status: recordArray[0]}
-		//			orderedList = append(orderedList, data)
-		//			itemTable=[][]string{}
-		//			itemTable = append(itemTable, recordArray)
-		//
-		//		}else{
-		//			itemTable = append(itemTable, recordArray)
-		//		}
-		//		first = false
-		//	}else{
-		//		itemTable = append(itemTable, recordArray)
-		//	}
-		//}
 	}
-
-	var owners2 []string
-	From(itemTable).Where(func(c interface{}) bool {
-		return c.([]string)[0] == "200"
-	}).ToSlice(&owners2)
-
-	fmt.Println(len(orderedList))
-
-	sort.Slice(orderedList[:], func(i, j int) bool {
-
-		return orderedList[i].Nimi < orderedList[j].Nimi
-	})
-
-	var recordList [][]string
-	listChan := make(chan [][]string)
-	var nmiFileName string
-
-	//---------------------------------------------
-	//group all the object
-	//---------------------------------------------
-	var dataItems []Group
-	From(orderedList).GroupByT(
-		func(word OrderData) int64 { return word.Nimi },
-		func(word OrderData) [][]string { return word.Data },
-	).ToSlice(&dataItems)
-
 	//----------------------------------------------
 	//loop to create and spawn go routine
 	//----------------------------------------------
 	var m sync.RWMutex
-	for _, item := range dataItems {
+	listChan := make(chan [][]string)
+	for _, item := range itemMap {
 
-		if len(item.Group) > 0 {
-			nmiFileName = fmt.Sprintf("%s%s", "", item.Group[1])
+		if len(item) > 0 {
+			nmiFileName := fmt.Sprintf("%s%s", "", item[0][1])
 			firstElement := []string{"100", nmiFileName, config.Client, config.Client, "\r\n"}
-			recordList = append(recordList, firstElement)
-			for _, data := range item.Group {
-				recordList = append(recordList, data.([]string))
-			}
-			recordList = append(recordList, []string{"900", "\r\n"})
+
+			item = append([][]string{firstElement}, item...)
+			item = append(item, []string{"900", "\r\n"})
 			wg.Add(1)
 			go ProcessMeterDataSplitting(listChan, &m, &wg, nmiFileName, fileFolderPath, config)
-			listChan <- recordList
+			listChan <- item
 			wg.Wait()
-			recordList = [][]string{}
 		}
 	}
 	ss := fmt.Sprintf("%s%s%s", fileFolderPath, config.DirectorySep, filename)
@@ -153,13 +112,14 @@ func ProcessMeterDataSplitting(arr <-chan [][]string, m *sync.RWMutex, wg *sync.
 	case val := <-arr:
 		uid, eru := uuid.NewV4()
 		Error("unique id error", eru)
+		fmt.Println(fmt.Sprintf("%s%s%s%s%s", destinationPath, config.DirectorySep, nimiNumber+"-", uid.String(), ".csv"))
 		file, err := os.Create(fmt.Sprintf("%s%s%s%s%s", destinationPath, config.DirectorySep, nimiNumber+"-", uid.String(), ".csv"))
 		Error("error in file creation", err)
 		defer file.Close()
 		writer := csx.NewWriter(file)
 		defer writer.Flush()
 		for _, item := range val {
-			fmt.Println(item)
+			//	fmt.Println(item)
 			err = writer.Write(item)
 			Error("Error in writing to file", err)
 		}
