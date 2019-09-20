@@ -93,6 +93,11 @@ func (p *CsvProcess) ProcessCsv(filePath string, config *Config) (string, error)
 		//}
 	}
 
+	var owners2 []string
+	From(itemTable).Where(func(c interface{}) bool {
+		return c.([]string)[0] == "200"
+	}).ToSlice(&owners2)
+
 	fmt.Println(len(orderedList))
 
 	sort.Slice(orderedList[:], func(i, j int) bool {
