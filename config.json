@@ -1,6 +1,6 @@
 {
-  "source": "C:\\Watcher\\Source",
-  "destination": "C:\\Watcher\\Results",
+  "source": "D:\\Watcher\\Source",
+  "destination": "D:\\Watcher\\Results",
   "directorysep": "\\",
   "client":"ORIGIN"
 }
