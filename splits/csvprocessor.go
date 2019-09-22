@@ -129,9 +129,7 @@ func ProcessMeterDataSplitting(arr <-chan [][]string, m *sync.RWMutex, wg *sync.
 	case val := <-arr:
 		uid, eru := uuid.NewV4()
 		Error("unique id error", eru)
-
-		//file, err := os.Create(fmt.Sprintf("%s%s%s%s%s", destinationPath, config.DirectorySep, nimiNumber+"-", uid.String(), ".csv"))
-		file, err := os.Create("/home/bill/Downloads/" + uid.String() + ".csv")
+		file, err := os.Create(fmt.Sprintf("%s%s%s%s%s", destinationPath, config.DirectorySep, nimiNumber+"-", uid.String(), ".csv"))
 		Error("error in file creation", err)
 		defer file.Close()
 		writer := csx.NewWriter(file)

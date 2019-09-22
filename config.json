@@ -1,6 +1,6 @@
 {
   "source": "/home/bill/Watcher/Source",
   "destination": "/home/bill/Watcher/Results",
-  "directorysep": "/",
+  "directorysep": "//",
   "client":"ORIGIN"
 }
