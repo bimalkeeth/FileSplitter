@@ -7,8 +7,7 @@ type Config struct {
 	Client       string `json:"client"`
 }
 
-type OrderData struct {
-	Status string
-	Nimi   int64
-	Data   [][]string
+type Record struct {
+	Nimi string
+	Data *[][]string
 }

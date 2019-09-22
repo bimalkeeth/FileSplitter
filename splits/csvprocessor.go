@@ -25,7 +25,16 @@ func New() ICsvProcessor {
 	return &CsvProcess{}
 }
 
-type By func(p1, p2 *OrderData) bool
+type By func(p1, p2 *Record) bool
+
+func Find(slice []Record, val string) (int, bool) {
+	for i, item := range slice {
+		if item.Nimi == val {
+			return i, true
+		}
+	}
+	return -1, false
+}
 
 //-------------------------------------------------------
 //processing big file to split into small files
@@ -55,43 +64,51 @@ func (p *CsvProcess) ProcessCsv(filePath string, config *Config) (string, error)
 	Error("error in file directory creation", err)
 
 	var itemTable [][]string
-	itemMap := make(map[string][][]string)
+	var initialItem []Record
+	initialItem = []Record{}
 	for {
 		recordOrd, err := reader.ReadLine()
 		if err == io.EOF || recordOrd == "" {
 			break
 		}
 		Error("error in day directory creation", err)
-		recordArray := strings.Split(recordOrd, ",")
-		if recordArray[1] != "" && recordArray[1] != " " {
-			mapKey := recordArray[1]
-			if recordArray[0] == "200" {
-				if _, ok := itemMap[mapKey]; ok {
-					for _, item := range itemTable {
-						itemMap[mapKey] = append(itemMap[mapKey], item)
-					}
-				} else {
-					itemMap[mapKey] = append(itemMap[mapKey], recordArray)
-				}
-				fmt.Println("processing status reord -", mapKey)
-			} else {
-				itemTable = append(itemTable, recordArray)
-			}
+		record := strings.Split(recordOrd, ",")
+		if record[1] != "" && record[1] != " " {
+			itemTable = append(itemTable, record)
 		}
 	}
-	//----------------------------------------------
-	//loop to create and spawn go routine
-	//----------------------------------------------
+	record := Record{Data: &[][]string{}}
+	counter := 0
+
+	for _, item := range itemTable {
+		if item[0] == "200" {
+			index, exists := Find(initialItem, item[1])
+			if exists {
+				record = initialItem[index]
+			} else {
+				record = Record{Data: &[][]string{}}
+			}
+			record.Nimi = item[1]
+			if !exists {
+
+				nmiFileName := fmt.Sprintf("%s%s", "", item[1])
+				firstElement := []string{"100", nmiFileName, config.Client, config.Client, "\r\n"}
+				*record.Data = append(*record.Data, firstElement)
+				initialItem = append(initialItem, record)
+			}
+		}
+		*record.Data = append(*record.Data, item)
+		counter++
+		if counter < len(itemTable) && itemTable[counter][0] == "200" {
+			*record.Data = append(*record.Data, []string{"900", "\r\n"})
+		}
+	}
 	var m sync.RWMutex
 	listChan := make(chan [][]string)
-	for _, item := range itemMap {
-
-		if len(item) > 0 {
-			nmiFileName := fmt.Sprintf("%s%s", "", item[0][1])
-			firstElement := []string{"100", nmiFileName, config.Client, config.Client, "\r\n"}
-
-			item = append([][]string{firstElement}, item...)
-			item = append(item, []string{"900", "\r\n"})
+	for _, data := range initialItem {
+		if len(*data.Data) > 0 {
+			item := *data.Data
+			nmiFileName := fmt.Sprintf("%s%s", "", data.Nimi)
 			wg.Add(1)
 			go ProcessMeterDataSplitting(listChan, &m, &wg, nmiFileName, fileFolderPath, config)
 			listChan <- item
@@ -112,6 +129,7 @@ func ProcessMeterDataSplitting(arr <-chan [][]string, m *sync.RWMutex, wg *sync.
 	case val := <-arr:
 		uid, eru := uuid.NewV4()
 		Error("unique id error", eru)
+
 		file, err := os.Create(fmt.Sprintf("%s%s%s%s%s", destinationPath, config.DirectorySep, nimiNumber+"-", uid.String(), ".csv"))
 		Error("error in file creation", err)
 		defer file.Close()
