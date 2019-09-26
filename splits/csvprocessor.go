@@ -91,18 +91,19 @@ func (p *CsvProcess) ProcessCsv(filePath string, config *Config) (string, error)
 			record.Nimi = item[1]
 			if !exists {
 
-				firstElement := []string{"100", fmt.Sprintf("%s%s", "", item[1]), config.Client, config.Client, "\r\n"}
+				first := []string{"100", fmt.Sprintf("%s%s", "", item[1]), config.Client, config.Client}
+				arrayLength := len(item) - 4
+				for i := 0; i < arrayLength; i++ {
+					first = append(first, " ")
+				}
+				firstElement := []string{"100", fmt.Sprintf("%s%s", "", item[1]), config.Client, config.Client}
 				*record.Data = append(*record.Data, firstElement)
 				initialItem = append(initialItem, record)
-			} else {
-
-				firstElement := []string{"100", fmt.Sprintf("%s%s", "", item[1]), config.Client, config.Client, "\r\n"}
-				*record.Data = append(*record.Data, firstElement)
 			}
 		}
 		*record.Data = append(*record.Data, item)
 		counter++
-		if counter < len(itemTable) && itemTable[counter][0] == "200" {
+		if counter == len(itemTable) {
 			*record.Data = append(*record.Data, []string{"900", "\r\n"})
 		}
 	}
