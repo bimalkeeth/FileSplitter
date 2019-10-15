@@ -45,6 +45,12 @@ func (p *CsvProcess) ProcessCsv(filePath string, config *Config) (string, error)
 	file, err := os.Open(filePath)
 	defer file.Close()
 
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered in f", r)
+		}
+	}()
+
 	if err != nil {
 		return "", err
 	}
@@ -73,14 +79,31 @@ func (p *CsvProcess) ProcessCsv(filePath string, config *Config) (string, error)
 		}
 		Error("error in day directory creation", err)
 		record := strings.Split(recordOrd, ",")
-		if record[1] != "" && record[1] != " " {
+
+		if len(record) > 1 && record[1] != "" && record[1] != " " {
 			itemTable = append(itemTable, record)
 		}
 	}
 	record := Record{Data: &[][]string{}}
 	counter := 0
+	hundredFound := false
+	nineHundredFound := false
+
+	var firstElement []string
+	var lastElement []string
 
 	for _, item := range itemTable {
+		if item[0] == "100" {
+
+			hundredFound = true
+			firstElement = item
+		}
+		if item[0] == "900" {
+
+			nineHundredFound = true
+			lastElement = item
+		}
+
 		if item[0] == "200" {
 			index, exists := Find(initialItem, item[1])
 			if exists {
@@ -90,21 +113,28 @@ func (p *CsvProcess) ProcessCsv(filePath string, config *Config) (string, error)
 			}
 			record.Nimi = item[1]
 			if !exists {
+				if !hundredFound {
+					first := []string{"100", fmt.Sprintf("%s%s", "", item[1]), config.Client, config.Client}
+					arrayLength := len(item) - 4
+					for i := 0; i < arrayLength; i++ {
+						first = append(first, " ")
+					}
+					firstElement = []string{"100", fmt.Sprintf("%s%s", "", item[1]), config.Client, config.Client}
 
-				first := []string{"100", fmt.Sprintf("%s%s", "", item[1]), config.Client, config.Client}
-				arrayLength := len(item) - 4
-				for i := 0; i < arrayLength; i++ {
-					first = append(first, " ")
 				}
-				firstElement := []string{"100", fmt.Sprintf("%s%s", "", item[1]), config.Client, config.Client}
+
 				*record.Data = append(*record.Data, firstElement)
 				initialItem = append(initialItem, record)
 			}
 		}
 		*record.Data = append(*record.Data, item)
+
 		counter++
-		if counter == len(itemTable) {
-			*record.Data = append(*record.Data, []string{"900", "\r\n"})
+		if counter >= len(itemTable) && !nineHundredFound {
+			*record.Data = append(*record.Data, []string{"900"})
+		}
+		if nineHundredFound {
+			*record.Data = append(*record.Data, lastElement)
 		}
 	}
 	var m sync.RWMutex
