@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -40,6 +41,7 @@ func Find(slice []Record, val string) (int, bool) {
 //processing big file to split into small files
 //-------------------------------------------------------
 func (p *CsvProcess) ProcessCsv(filePath string, config *Config) (string, error) {
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	wg := sync.WaitGroup{}
 	file, err := os.Open(filePath)
